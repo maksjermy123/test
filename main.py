@@ -12,7 +12,7 @@ app = FastAPI()
 # ── Конфигурация ──────────────────────────────────────────────
 BOT_TOKEN      = "8705181884:AAGgfwunSu71wYcipiqdqIxdVQL_3kU_k14"
 CHANNEL_ID     = "@Testovuj"
-GITHUB_TOKEN   = "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"
+GITHUB_TOKEN   = os.environ.get("GITHUB_TOKEN", "")  # задаётся в Render
 GITHUB_REPO    = "maksjermy123/test"
 GEMINI_API_KEY = "AIzaSyBqCiHuH1iS0lkhFdJQRmj45975rRXDKZI"
 
