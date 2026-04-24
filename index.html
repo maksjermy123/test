@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📚 Глубже</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #f5f0e8;
+      --card:     #fffdf8;
+      --accent:   #2e7d32;
+      --accent2:  #4caf50;
+      --text:     #2c2c2c;
+      --muted:    #7a7a6e;
+      --border:   #e0d8cc;
+      --shadow:   0 2px 12px rgba(0,0,0,0.07);
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 32px;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--accent);
+      color: #fff;
+      padding: 20px 20px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .header p {
+      font-size: 0.8rem;
+      opacity: 0.8;
+      margin-top: 2px;
+    }
+
+    /* ── Loading / Error ── */
+    .state-box {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--muted);
+    }
+    .state-box .icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .state-box p { font-size: 0.95rem; line-height: 1.5; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Content ── */
+    .content { padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-header .emoji { font-size: 1.2rem; }
+    .card-header h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* ── Related posts ── */
+    .related-list { padding: 8px 0; }
+    .related-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+      color: var(--text);
+      transition: background 0.15s;
+    }
+    .related-item:last-child { border-bottom: none; }
+    .related-item:hover { background: #f0ebe0; }
+    .related-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .related-text { font-size: 0.88rem; color: var(--muted); }
+
+    /* ── Bible refs ── */
+    .bible-list { padding: 8px 0; }
+    .bible-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+      color: var(--text);
+      transition: background 0.15s;
+    }
+    .bible-item:last-child { border-bottom: none; }
+    .bible-item:hover { background: #f0ebe0; }
+    .bible-ref {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .bible-theme { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Quotes ── */
+    .quote-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 14px; }
+    .quote-item {
+      border-left: 3px solid var(--accent2);
+      padding: 8px 12px;
+      background: #f7f3ea;
+      border-radius: 0 8px 8px 0;
+    }
+    .quote-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      font-style: italic;
+      line-height: 1.5;
+    }
+    .quote-author {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 6px;
+      font-weight: 600;
+    }
+
+    /* ── Reflection ── */
+    .reflection-body {
+      padding: 14px 16px;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.15rem;
+      line-height: 1.6;
+      font-style: italic;
+      color: var(--text);
+    }
+    .reflection-body::before { content: '«'; color: var(--accent); }
+    .reflection-body::after  { content: '»'; color: var(--accent); }
+
+    /* ── Topics ── */
+    .topics {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      padding: 10px 16px 14px;
+    }
+    .topic-chip {
+      background: #e8f5e9;
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📚 Глубже</h1>
+  <p id="header-sub">Загрузка материалов...</p>
+</div>
+
+<div id="app">
+  <div class="state-box">
+    <div class="spinner"></div>
+    <p>Загружаем ссылочную массу...</p>
+  </div>
+</div>
+
+<script>
+  const BACKEND = "https://deeplink-test.onrender.com"; // ← сменить после деплоя
+
+  const tg = window.Telegram?.WebApp;
+  if (tg) { tg.ready(); tg.expand(); }
+
+  // Получаем post_id из start_param или из URL
+  function getPostId() {
+    const startParam = tg?.initDataUnsafe?.start_param;
+    if (startParam) return startParam;
+    const params = new URLSearchParams(window.location.search);
+    return params.get("post_id") || params.get("start");
+  }
+
+  async function load() {
+    const postId = getPostId();
+    const app = document.getElementById("app");
+    const sub = document.getElementById("header-sub");
+
+    if (!postId) {
+      app.innerHTML = `
+        <div class="state-box">
+          <div class="icon">🔍</div>
+          <p>Пост не указан.<br>Открой эту страницу через кнопку в посте канала.</p>
+        </div>`;
+      sub.textContent = "Пост не найден";
+      return;
+    }
+
+    sub.textContent = `Пост #${postId}`;
+
+    try {
+      const r = await fetch(`${BACKEND}/links/${postId}`);
+      if (!r.ok) throw new Error(r.status === 404 ? "not_found" : "server_error");
+      const data = await r.json();
+      render(data, postId);
+    } catch (e) {
+      if (e.message === "not_found") {
+        app.innerHTML = `
+          <div class="state-box">
+            <div class="icon">⏳</div>
+            <p>Материалы для этого поста ещё готовятся.<br>Зайди чуть позже.</p>
+          </div>`;
+      } else {
+        app.innerHTML = `
+          <div class="state-box">
+            <div class="icon">⚠️</div>
+            <p>Не удалось загрузить данные.<br>Проверь соединение и попробуй снова.</p>
+          </div>`;
+      }
+      sub.textContent = "Ошибка загрузки";
+    }
+  }
+
+  function render(data, postId) {
+    const sub = document.getElementById("header-sub");
+    sub.textContent = `Пост #${postId} · ${(data.topics || []).join(", ")}`;
+
+    let html = '<div class="content">';
+
+    // Темы
+    if (data.topics?.length) {
+      html += `<div class="card">
+        <div class="card-header"><span class="emoji">🏷️</span><h2>Темы</h2></div>
+        <div class="topics">${data.topics.map(t => `<span class="topic-chip">${t}</span>`).join("")}</div>
+      </div>`;
+    }
+
+    // Связанные посты
+    if (data.related_posts?.length) {
+      const items = data.related_posts.map((id, i) => `
+        <a class="related-item" href="https://t.me/Testovuj/${id}" target="_blank">
+          <div class="related-num">${i + 1}</div>
+          <div>
+            <div style="font-size:0.9rem;font-weight:600;">Пост #${id}</div>
+            <div class="related-text">Похожая тема в канале</div>
+          </div>
+        </a>`).join("");
+      html += `<div class="card">
+        <div class="card-header"><span class="emoji">🔗</span><h2>Связанные посты</h2></div>
+        <div class="related-list">${items}</div>
+      </div>`;
+    }
+
+    // Библейские отрывки
+    if (data.bible_refs?.length) {
+      const items = data.bible_refs.map(b => `
+        <a class="bible-item" href="${b.url}" target="_blank">
+          <div>
+            <div class="bible-ref">${b.ref}</div>
+            <div class="bible-theme">${b.theme}</div>
+          </div>
+        </a>`).join("");
+      html += `<div class="card">
+        <div class="card-header"><span class="emoji">📖</span><h2>Библейские отрывки</h2></div>
+        <div class="bible-list">${items}</div>
+      </div>`;
+    }
+
+    // Цитаты
+    if (data.quotes?.length) {
+      const items = data.quotes.map(q => `
+        <div class="quote-item">
+          <div class="quote-text">${q.text}</div>
+          <div class="quote-author">— ${q.author}, «${q.book}»</div>
+        </div>`).join("");
+      html += `<div class="card">
+        <div class="card-header"><span class="emoji">💬</span><h2>Цитаты богословов</h2></div>
+        <div class="quote-list">${items}</div>
+      </div>`;
+    }
+
+    // Вопрос для размышления
+    if (data.reflection) {
+      html += `<div class="card">
+        <div class="card-header"><span class="emoji">🙏</span><h2>Вопрос для размышления</h2></div>
+        <div class="reflection-body">${data.reflection}</div>
+      </div>`;
+    }
+
+    html += '</div>';
+    document.getElementById("app").innerHTML = html;
+  }
+
+  load();
+</script>
+</body>
+</html>
