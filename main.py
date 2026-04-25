@@ -14,17 +14,21 @@ BOT_TOKEN      = "8705181884:AAGgfwunSu71wYcipiqdqIxdVQL_3kU_k14"
 CHANNEL_ID     = "@Testovuj"
 GITHUB_TOKEN   = os.environ.get("GITHUB_TOKEN", "")  # задаётся в Render
 GITHUB_REPO    = "maksjermy123/test"
-GEMINI_API_KEY = "AIzaSyBqCiHuH1iS0lkhFdJQRmj45975rRXDKZI"
+OPENROUTER_API_KEY = "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"
 
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 GITHUB_API   = "https://api.github.com"
-GEMINI_API   = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    f"gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-)
+OPENROUTER_API = "https://openrouter.ai/api/v1/chat/completions"
 GITHUB_HEADERS = {
     "Authorization": f"token {GITHUB_TOKEN}",
     "Accept": "application/vnd.github.v3+json",
+}
+
+OPENROUTER_HEADERS = {
+    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+    "Content-Type": "application/json",
+    "HTTP-Referer": "https://maksjermy123.github.io/test/",
+    "X-Title": "Chtenie Preobrazenie",
 }
 
 # ── Хэштеги → категории ───────────────────────────────────────
@@ -120,18 +124,22 @@ async def github_put(client: httpx.AsyncClient, filename: str, content: dict, sh
         r.raise_for_status()
 
 
-# ── Gemini анализ ─────────────────────────────────────────────
+# ── OpenRouter анализ ────────────────────────────────────────
 async def analyze_with_gemini(post_text: str, topics: list, all_posts: dict):
     prompt = GEMINI_PROMPT.format(
         post_text=post_text,
         topics=", ".join(topics),
         all_posts=json.dumps(all_posts, ensure_ascii=False)[:8000],
     )
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(GEMINI_API, json=payload)
+    payload = {
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+    }
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(OPENROUTER_API, headers=OPENROUTER_HEADERS, json=payload)
         r.raise_for_status()
-        text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        text = r.json()["choices"][0]["message"]["content"]
         text = text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
         return json.loads(text)
 
