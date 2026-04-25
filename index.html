@@ -160,6 +160,26 @@
       font-weight: 600;
     }
 
+    /* ── Translation buttons ── */
+    .trans-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .trans-btn {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: #e8f5e9;
+      color: var(--accent);
+      text-decoration: none;
+      border: 1px solid #c8e6c9;
+      transition: background 0.15s;
+    }
+    .trans-btn:hover { background: #c8e6c9; }
+
     /* ── Bible text ── */
     .bible-text {
       font-family: 'Cormorant Garamond', serif;
@@ -299,14 +319,19 @@
 
     // Библейские отрывки
     if (data.bible_refs?.length) {
-      const items = data.bible_refs.map(b => `
+      const items = data.bible_refs.map(b => {
+        const translations = b.translations || {};
+        const btnHtml = Object.entries(translations).map(([name, url]) =>
+          `<a class="trans-btn" href="${url}" target="_blank">${name}</a>`
+        ).join("");
+        return `
         <div class="bible-item">
-          <div>
-            <div class="bible-ref">${b.ref}</div>
-            <div class="bible-theme">${b.theme}</div>
-            ${b.text ? `<div class="bible-text">${b.text}</div>` : ""}
-          </div>
-        </div>`).join("");
+          <div class="bible-ref">${b.ref}</div>
+          <div class="bible-theme">${b.theme}</div>
+          ${b.text_syn ? `<div class="bible-text">${b.text_syn}</div>` : ""}
+          <div class="trans-links">${btnHtml}</div>
+        </div>`;
+      }).join("");
       html += `<div class="card">
         <div class="card-header"><span class="emoji">📖</span><h2>Библейские отрывки</h2></div>
         <div class="bible-list">${items}</div>
