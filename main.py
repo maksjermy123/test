@@ -112,9 +112,6 @@ GROQ_PROMPT = """
 ━━━ ТЕКСТ ПОСТА ━━━
 {post_text}
 
-━━━ ПОСТЫ КАНАЛА (для поиска связанных по смыслу) ━━━
-{all_posts}
-
 ━━━ ТВОЙ ПРОЦЕСС ━━━
 
 ШАГ 1 — ПОЙМИ АВТОРА
@@ -143,11 +140,6 @@ GROQ_PROMPT = """
 
 Предпочитай отрывки (3-7 стихов) а не одиночные стихи.
 
-ШАГ 4 — СВЯЗАННЫЕ ПОСТЫ
-Из списка постов канала выбери 3-5 которые развивают ТУ ЖЕ богословскую мысль.
-Сравнивай содержание постов, а не теги.
-Если похожих постов нет — верни пустой список.
-
 ШАГ 5 — ВОПРОС ДЛЯ РАЗМЫШЛЕНИЯ
 Сформулируй вопрос как продолжение мысли автора —
 как будто ты его собеседник который прочитал пост и задаёт следующий вопрос.
@@ -167,6 +159,31 @@ GROQ_PROMPT = """
   ],
   "reflection": "Личный вопрос продолжающий мысль автора"
 }}
+"""
+
+RELATED_PROMPT = """
+Ты — богослов и редактор христианского канала.
+Твоя задача — найти посты канала которые богословски связаны с данным постом.
+
+АНАЛИЗИРУЕМЫЙ ПОСТ:
+{post_text}
+
+ПОСТЫ КАНАЛА:
+{all_posts}
+
+Прочитай анализируемый пост и определи его главную богословскую мысль.
+Затем внимательно прочитай каждый пост из списка и найди те которые:
+- Развивают ту же богословскую тему
+- Используют похожие тексты Писания
+- Продолжают или дополняют мысль автора
+- Рассматривают смежную духовную проблему
+
+НЕ выбирай посты просто потому что в них есть похожие слова или теги.
+Выбирай по богословской близости мысли.
+Если нет действительно близких постов — верни пустой список.
+
+Ответь ТОЛЬКО валидным JSON без markdown:
+{{"related_posts": [список из 0-5 id постов]}}
 """
 
 github_lock = asyncio.Lock()
@@ -352,6 +369,41 @@ def make_translation_links(ref: str) -> dict:
     }
 
 
+# ── Поиск связанных постов ───────────────────────────────────
+async def find_related_posts(post_text: str, all_posts: dict) -> list:
+    """Отдельный запрос к ИИ только для поиска связанных постов"""
+    if not all_posts.get("posts"):
+        return []
+    # Передаём полный текст каждого поста
+    posts_summary = []
+    for p in all_posts["posts"]:
+        posts_summary.append({
+            "id": p["id"],
+            "text": p["text"],  # уже до 2000 символов
+            "topics": p.get("topics", [])
+        })
+    prompt = RELATED_PROMPT.format(
+        post_text=post_text,
+        all_posts=json.dumps(posts_summary, ensure_ascii=False)[:10000]
+    )
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1,  # очень низкая — нужна точность, не креативность
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.post(GROQ_URL, headers=GROQ_HEADERS, json=payload)
+            r.raise_for_status()
+            text = r.json()["choices"][0]["message"]["content"]
+            text = text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+            data = json.loads(text)
+            return data.get("related_posts", [])
+    except Exception as e:
+        print(f"Related posts error: {e}")
+        return []
+
+
 # ── Groq анализ ───────────────────────────────────────────────
 async def analyze_post(post_text: str, topics: list, all_posts: dict):
     prompt = GROQ_PROMPT.format(
@@ -395,7 +447,7 @@ async def process_post(post: dict):
             if post_id not in existing_ids:
                 posts_data["posts"].append({
                     "id": post_id,
-                    "text": text[:500],
+                    "text": text[:2000],
                     "topics": topics,
                     "date": datetime.utcnow().isoformat(),
                 })
@@ -403,8 +455,12 @@ async def process_post(post: dict):
                 posts_data["updated"] = datetime.utcnow().isoformat()
                 await github_put(client, "posts.json", posts_data, posts_sha, f"Add post {post_id}")
 
+            # Параллельно запускаем анализ и поиск связанных постов
             try:
-                result = await analyze_post(text, topics, posts_data)
+                result, related = await asyncio.gather(
+                    analyze_post(text, topics, posts_data),
+                    find_related_posts(text, posts_data)
+                )
             except Exception as e:
                 print(f"Groq error for post {post_id}: {e}")
                 return
@@ -412,6 +468,7 @@ async def process_post(post: dict):
             result["post_id"] = post_id
             result["topics"] = topics
             result["quotes"] = []
+            result["related_posts"] = related
 
             # Подтягиваем текст и ссылки на переводы для каждого стиха
             for bible_ref in result.get("bible_refs", []):
