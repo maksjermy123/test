@@ -78,16 +78,13 @@ GEMINI_PROMPT = """
   "bible_refs": [
     {{"ref": "Книга глава:стихи", "url": "https://bible.by/verse/...", "theme": "краткая тема"}}
   ],
-  "quotes": [
-    {{"author": "Имя автора", "book": "Название книги", "text": "цитата до 200 символов"}}
-  ],
+  "quotes": [],
   "reflection": "один глубокий вопрос для личного размышления по теме поста"
 }}
 
 Правила:
 - related_posts: только реально существующие id из предоставленного JSON
 - bible_refs: 2-4 отрывка, URL формат bible.by: https://bible.by/verse/КНИГА/ГЛАВА/СТИХ/
-- quotes: цитаты богословов (Льюис, Фергюсон, Достоевский, Сперджен, Барт) если уместны
 - reflection: конкретный практический вопрос, не общий
 - Весь текст на русском языке
 - Только валидный JSON, без markdown блоков
@@ -193,6 +190,12 @@ async def process_post(post: dict):
 
             result["post_id"] = post_id
             result["topics"] = topics
+            result["quotes"] = []  # цитаты богословов — будут добавлены позже
+
+            # Подтягиваем текст каждого библейского стиха
+            for bible_ref in result.get("bible_refs", []):
+                text = await fetch_bible_text(bible_ref.get("ref", ""))
+                bible_ref["text"] = text
 
             links_data, links_sha = await github_get(client, "links.json")
             if links_data is None:
