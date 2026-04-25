@@ -34,5 +34,53 @@
     "topics": [
       "😔 Теодицея"
     ]
+  },
+  "294": {
+    "related_posts": [
+      286,
+      287,
+      294
+    ],
+    "bible_refs": [
+      {
+        "ref": "Иов 1:21",
+        "theme": "Вера Иова в страдании",
+        "text_syn": "He said, “Naked I came out of my mother’s womb, and naked shall I return there. Yahweh gave, and Yahweh has taken away. Blessed be Yahweh’s name.”",
+        "translations": {
+          "Синодальный": "https://bible.by/syn/?search=Иов+1:21",
+          "Кассиана": "https://bible.by/kas/?search=Иов+1:21",
+          "РБО": "https://bible.by/nrt/?search=Иов+1:21",
+          "Все переводы": "https://bible.by/?search=Иов+1:21"
+        }
+      },
+      {
+        "ref": "Римлянам 8:28-30",
+        "theme": "Все работает на добро",
+        "text_syn": "We know that all things work together for good for those who love God, to those who are called according to his purpose.\nFor whom he foreknew, he also predestined to be conformed to the image of his Son, that he might be the firstborn among many brothers.\nWhom he predestined, those he also called. Whom he called, those he also justified. Whom he justified, those he also glorified.",
+        "translations": {
+          "Синодальный": "https://bible.by/syn/?search=Римлянам+8:28-30",
+          "Кассиана": "https://bible.by/kas/?search=Римлянам+8:28-30",
+          "РБО": "https://bible.by/nrt/?search=Римлянам+8:28-30",
+          "Все переводы": "https://bible.by/?search=Римлянам+8:28-30"
+        }
+      },
+      {
+        "ref": "Иов 2:10",
+        "theme": "Терпение и вера",
+        "text_syn": "But he said to her, “You speak as one of the foolish women would speak. What? Shall we receive good at the hand of God, and shall we not receive evil?”\nIn all this Job didn’t sin with his lips.",
+        "translations": {
+          "Синодальный": "https://bible.by/syn/?search=Иов+2:10",
+          "Кассиана": "https://bible.by/kas/?search=Иов+2:10",
+          "РБО": "https://bible.by/nrt/?search=Иов+2:10",
+          "Все переводы": "https://bible.by/?search=Иов+2:10"
+        }
+      }
+    ],
+    "reflection": "Как я могу сохранить веру и надежду в ситуации, когда всё кажется потерянным?",
+    "post_id": 294,
+    "topics": [
+      "Теодицея"
+    ],
+    "quotes": []
   }
 }
