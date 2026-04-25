@@ -100,8 +100,8 @@
       gap: 12px;
       padding: 10px 16px;
       border-bottom: 1px solid var(--border);
-      text-decoration: none;
       color: var(--text);
+      cursor: pointer;
       transition: background 0.15s;
     }
     .related-item:last-child { border-bottom: none; }
@@ -174,9 +174,10 @@
       border-radius: 999px;
       background: #e8f5e9;
       color: var(--accent);
-      text-decoration: none;
       border: 1px solid #c8e6c9;
+      cursor: pointer;
       transition: background 0.15s;
+      font-family: 'Nunito', sans-serif;
     }
     .trans-btn:hover { background: #c8e6c9; }
 
@@ -247,6 +248,15 @@
     return params.get("post_id") || params.get("start");
   }
 
+  // Открываем ссылки через Telegram встроенный браузер
+  function openLink(url) {
+    if (tg && tg.openLink) {
+      tg.openLink(url);
+    } else {
+      window.open(url, "_blank");
+    }
+  }
+
   async function load() {
     const postId = getPostId();
     const app = document.getElementById("app");
@@ -304,13 +314,13 @@
     // Связанные посты
     if (data.related_posts?.length) {
       const items = data.related_posts.map((id, i) => `
-        <a class="related-item" href="https://t.me/Testovuj/${id}" target="_blank">
+        <div class="related-item" onclick="openLink('https://t.me/Testovuj/${id}')">
           <div class="related-num">${i + 1}</div>
           <div>
             <div style="font-size:0.9rem;font-weight:600;">Пост #${id}</div>
             <div class="related-text">Похожая тема в канале</div>
           </div>
-        </a>`).join("");
+        </div>`).join("");
       html += `<div class="card">
         <div class="card-header"><span class="emoji">🔗</span><h2>Связанные посты</h2></div>
         <div class="related-list">${items}</div>
@@ -322,7 +332,7 @@
       const items = data.bible_refs.map(b => {
         const translations = b.translations || {};
         const btnHtml = Object.entries(translations).map(([name, url]) =>
-          `<a class="trans-btn" href="${url}" target="_blank">${name}</a>`
+          `<button class="trans-btn" onclick="openLink('${url}')">${name}</button>`
         ).join("");
         return `
         <div class="bible-item">
