@@ -259,7 +259,7 @@ async def get_bible_db(client: httpx.AsyncClient):
     if _bible_cache is not None:
         return _bible_cache
     try:
-        url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/ru_synodal.json"
+        url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/ru_synodal_fixed.json"
         r = await client.get(url, timeout=30)
         if r.status_code == 200:
             _bible_cache = r.json()
