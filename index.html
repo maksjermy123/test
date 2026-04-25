@@ -126,12 +126,9 @@
       gap: 12px;
       padding: 10px 16px;
       border-bottom: 1px solid var(--border);
-      text-decoration: none;
       color: var(--text);
-      transition: background 0.15s;
     }
     .bible-item:last-child { border-bottom: none; }
-    .bible-item:hover { background: #f0ebe0; }
     .bible-ref {
       font-family: 'Cormorant Garamond', serif;
       font-size: 1rem;
@@ -161,6 +158,18 @@
       color: var(--muted);
       margin-top: 6px;
       font-weight: 600;
+    }
+
+    /* ── Bible text ── */
+    .bible-text {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 0.97rem;
+      line-height: 1.6;
+      color: var(--text);
+      margin-top: 6px;
+      font-style: italic;
+      border-top: 1px solid var(--border);
+      padding-top: 6px;
     }
 
     /* ── Reflection ── */
@@ -291,30 +300,20 @@
     // Библейские отрывки
     if (data.bible_refs?.length) {
       const items = data.bible_refs.map(b => `
-        <a class="bible-item" href="${b.url}" target="_blank">
+        <div class="bible-item">
           <div>
             <div class="bible-ref">${b.ref}</div>
             <div class="bible-theme">${b.theme}</div>
+            ${b.text ? `<div class="bible-text">${b.text}</div>` : ""}
           </div>
-        </a>`).join("");
+        </div>`).join("");
       html += `<div class="card">
         <div class="card-header"><span class="emoji">📖</span><h2>Библейские отрывки</h2></div>
         <div class="bible-list">${items}</div>
       </div>`;
     }
 
-    // Цитаты
-    if (data.quotes?.length) {
-      const items = data.quotes.map(q => `
-        <div class="quote-item">
-          <div class="quote-text">${q.text}</div>
-          <div class="quote-author">— ${q.author}, «${q.book}»</div>
-        </div>`).join("");
-      html += `<div class="card">
-        <div class="card-header"><span class="emoji">💬</span><h2>Цитаты богословов</h2></div>
-        <div class="quote-list">${items}</div>
-      </div>`;
-    }
+    // Цитаты богословов — будут добавлены позже
 
     // Вопрос для размышления
     if (data.reflection) {
