@@ -60,30 +60,38 @@ HASHTAG_MAP = {
 }
 IGNORE_TAGS = {"#отчтениякпреображению"}
 
-# ── Карта книг для bible-api.com ──────────────────────────────
-BOOK_MAP = {
-    "Бытие": "genesis", "Исход": "exodus", "Левит": "leviticus",
-    "Числа": "numbers", "Второзаконие": "deuteronomy",
-    "Иисус Навин": "joshua", "Судьи": "judges", "Руфь": "ruth",
-    "1 Царств": "1samuel", "2 Царств": "2samuel",
-    "3 Царств": "1kings", "4 Царств": "2kings",
-    "Псалтирь": "psalms", "Псалом": "psalms",
-    "Притчи": "proverbs", "Екклесиаст": "ecclesiastes", "Иов": "job",
-    "Исаия": "isaiah", "Иеремия": "jeremiah", "Иезекииль": "ezekiel",
-    "Даниил": "daniel", "Осия": "hosea", "Амос": "amos",
-    "Иона": "jonah", "Михей": "micah", "Аввакум": "habakkuk",
-    "Захария": "zechariah", "Малахия": "malachi",
-    "Матфей": "matthew", "Марк": "mark", "Лука": "luke",
-    "Иоанн": "john", "Деяния": "acts", "Римлянам": "romans",
-    "1 Коринфянам": "1corinthians", "2 Коринфянам": "2corinthians",
-    "Галатам": "galatians", "Ефесянам": "ephesians",
-    "Филиппийцам": "philippians", "Колоссянам": "colossians",
-    "1 Фессалоникийцам": "1thessalonians", "2 Фессалоникийцам": "2thessalonians",
-    "1 Тимофею": "1timothy", "2 Тимофею": "2timothy",
-    "Евреям": "hebrews", "Иакова": "james",
-    "1 Петра": "1peter", "2 Петра": "2peter",
-    "1 Иоанна": "1john", "2 Иоанна": "2john", "3 Иоанна": "3john",
-    "Откровение": "revelation",
+# ── Карта книг: русское название → номер на bible.by ─────────
+# Формат ссылки: https://bible.by/syn/КНИГА/ГЛАВА/СТИХ/
+BOOK_NUM = {
+    "Бытие": 1, "Исход": 2, "Левит": 3, "Числа": 4, "Второзаконие": 5,
+    "Иисус Навин": 6, "Судьи": 7, "Руфь": 8,
+    "1 Царств": 9, "2 Царств": 10, "3 Царств": 11, "4 Царств": 12,
+    "1 Паралипоменон": 13, "2 Паралипоменон": 14,
+    "Ездра": 15, "Неемия": 16, "Есфирь": 17, "Иов": 18,
+    "Псалтирь": 19, "Псалом": 19, "Притчи": 20,
+    "Екклесиаст": 21, "Песня Песней": 22,
+    "Исаия": 23, "Иеремия": 24, "Плач Иеремии": 25,
+    "Иезекииль": 26, "Даниил": 27, "Осия": 28, "Иоиль": 29,
+    "Амос": 30, "Авдий": 31, "Иона": 32, "Михей": 33,
+    "Наум": 34, "Аввакум": 35, "Софония": 36, "Аггей": 37,
+    "Захария": 38, "Малахия": 39,
+    "Матфей": 40, "Марк": 41, "Лука": 42, "Иоанн": 43,
+    "Деяния": 44, "Римлянам": 45,
+    "1 Коринфянам": 46, "2 Коринфянам": 47,
+    "Галатам": 48, "Ефесянам": 49, "Филиппийцам": 50,
+    "Колоссянам": 51, "1 Фессалоникийцам": 52, "2 Фессалоникийцам": 53,
+    "1 Тимофею": 54, "2 Тимофею": 55, "Титу": 56, "Филимону": 57,
+    "Евреям": 58, "Иакова": 59,
+    "1 Петра": 60, "2 Петра": 61,
+    "1 Иоанна": 62, "2 Иоанна": 63, "3 Иоанна": 64,
+    "Иуды": 65, "Откровение": 66,
+}
+
+TRANSLATIONS = {
+    "syn": "Синодальный",
+    "kas": "Кассиана",
+    "nrt": "РБО",
+    "niv": "NIV (англ.)",
 }
 
 GROQ_PROMPT = """
@@ -150,42 +158,68 @@ async def github_put(client: httpx.AsyncClient, filename: str, content: dict, sh
         r.raise_for_status()
 
 
-# ── Библейский текст ──────────────────────────────────────────
-async def fetch_bible_text(ref: str) -> str:
-    """Синодальный перевод через bible-api.com (KJV как fallback)"""
+# ── Парсинг ref: "Книга глава:стих" → (book_num, chapter, verse) ──
+def parse_ref(ref: str):
+    """Разбираем ref на компоненты. Возвращает (book_num, chapter, verse_start) или None."""
     try:
         parts = ref.strip().split(" ")
         if parts[0].isdigit() and len(parts) >= 3:
             book_ru = parts[0] + " " + parts[1]
-            verses = parts[2]
+            cv = parts[2]
         elif len(parts) >= 2:
             book_ru = parts[0]
-            verses = parts[1]
+            cv = parts[1]
         else:
-            return ""
+            return None
 
-        book_en = BOOK_MAP.get(book_ru)
-        if not book_en:
-            return ""
+        book_num = BOOK_NUM.get(book_ru)
+        if not book_num:
+            return None
 
-        url = f"https://bible-api.com/{book_en}+{verses}"
-        async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(url)
-            if r.status_code == 200:
-                return r.json().get("text", "").strip()
+        # cv может быть "1:21" или "8:28-30"
+        if ":" in cv:
+            chapter, verse_part = cv.split(":", 1)
+            verse_start = verse_part.split("-")[0]
+            return book_num, int(chapter), int(verse_start)
+    except Exception:
+        pass
+    return None
+
+
+async def fetch_bible_text(ref: str) -> str:
+    """Текст Синодального перевода — парсим bible.by/syn/"""
+    parsed = parse_ref(ref)
+    if not parsed:
+        return ""
+    book_num, chapter, verse = parsed
+    url = f"https://bible.by/syn/{book_num}/{chapter}/{verse}/"
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            r = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+            if r.status_code != 200:
+                return ""
+            html = r.text
+            # Ищем текст стиха между тегами — bible.by хранит его в <p class="verse...">
+            import re
+            # Ищем span с классом versenum и берём следующий текст
+            matches = re.findall(r'<p[^>]*class="[^"]*verse[^"]*"[^>]*>(.*?)</p>', html, re.DOTALL)
+            if matches:
+                # Убираем HTML теги
+                text = re.sub(r'<[^>]+>', '', matches[0]).strip()
+                return text[:500]
     except Exception as e:
-        print(f"Bible API error for '{ref}': {e}")
+        print(f"Bible parse error for '{ref}': {e}")
     return ""
 
 
 def make_translation_links(ref: str) -> dict:
-    """Ссылки на переводы на bible.by"""
-    q = ref.replace(" ", "+")
+    """Прямая ссылка на стих со всеми переводами на bible.by"""
+    parsed = parse_ref(ref)
+    if not parsed:
+        return {}
+    book_num, chapter, verse = parsed
     return {
-        "Синодальный": f"https://bible.by/syn/?search={q}",
-        "Кассиана":    f"https://bible.by/kas/?search={q}",
-        "РБО":         f"https://bible.by/nrt/?search={q}",
-        "Все переводы": f"https://bible.by/?search={q}",
+        "📖 Читать все переводы": f"https://bible.by/verse/{book_num}/{chapter}/{verse}/",
     }
 
 
