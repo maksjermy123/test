@@ -181,6 +181,15 @@
     }
     .trans-btn:hover { background: #1b5e20; }
 
+    .bible-role {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+    }
+
     /* ── Bible text ── */
     .bible-text {
       font-family: 'Cormorant Garamond', serif;
@@ -331,11 +340,20 @@
     if (data.bible_refs?.length) {
       const items = data.bible_refs.map(b => {
         const translations = b.translations || {};
+        const roleLabels = {
+          "автора": "✍️ Текст автора",
+          "углубляющий": "🔑 Углубляющий",
+          "параллельный": "🔗 Параллельное место",
+          "христологический": "✝️ Христологический",
+          "практический": "🌱 Практический",
+        };
+        const roleLabel = b.role ? roleLabels[b.role] || "" : "";
         const btnHtml = Object.entries(translations).map(([name, url]) =>
           `<button class="trans-btn" onclick="openLink('${url}')">${name}</button>`
         ).join("");
         return `
         <div class="bible-item">
+          ${roleLabel ? `<div class="bible-role">${roleLabel}</div>` : ""}
           <div class="bible-ref">${b.ref}</div>
           <div class="bible-theme">${b.theme}</div>
           ${b.text_syn ? `<div class="bible-text">${b.text_syn}</div>` : ""}
