@@ -14,21 +14,19 @@ BOT_TOKEN      = "8705181884:AAGgfwunSu71wYcipiqdqIxdVQL_3kU_k14"
 CHANNEL_ID     = "@Testovuj"
 GITHUB_TOKEN   = os.environ.get("GITHUB_TOKEN", "")  # задаётся в Render
 GITHUB_REPO    = "maksjermy123/test"
-OPENROUTER_API_KEY = "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"
+GROQ_API_KEY = "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"
 
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 GITHUB_API   = "https://api.github.com"
-OPENROUTER_API = "https://openrouter.ai/api/v1/chat/completions"
+GROQ_API = "https://api.groq.com/openai/v1/chat/completions"
 GITHUB_HEADERS = {
     "Authorization": f"token {GITHUB_TOKEN}",
     "Accept": "application/vnd.github.v3+json",
 }
 
-OPENROUTER_HEADERS = {
-    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+GROQ_HEADERS = {
+    "Authorization": f"Bearer {GROQ_API_KEY}",
     "Content-Type": "application/json",
-    "HTTP-Referer": "https://maksjermy123.github.io/test/",
-    "X-Title": "Chtenie Preobrazenie",
 }
 
 # ── Хэштеги → категории ───────────────────────────────────────
@@ -132,12 +130,12 @@ async def analyze_with_gemini(post_text: str, topics: list, all_posts: dict):
         all_posts=json.dumps(all_posts, ensure_ascii=False)[:8000],
     )
     payload = {
-        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "model": "llama-3.3-70b-versatile",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.7,
     }
     async with httpx.AsyncClient(timeout=60) as client:
-        r = await client.post(OPENROUTER_API, headers=OPENROUTER_HEADERS, json=payload)
+        r = await client.post(GROQ_API, headers=GROQ_HEADERS, json=payload)
         r.raise_for_status()
         text = r.json()["choices"][0]["message"]["content"]
         text = text.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
