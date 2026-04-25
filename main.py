@@ -223,15 +223,36 @@ async def github_put(client: httpx.AsyncClient, filename: str, content: dict, sh
 
 
 # ── Парсинг ref: "Книга глава:стих" → (book_num, chapter, verse) ──
+BOOK_ALIASES = {
+    "Евангелие от Матфея": "Матфей", "Евангелие от Марка": "Марк",
+    "Евангелие от Луки": "Лука", "Евангелие от Иоанна": "Иоанн",
+    "Деяния апостолов": "Деяния", "Деяния Апостолов": "Деяния",
+    "Послание к Римлянам": "Римлянам", "Послание Иакова": "Иакова",
+    "1-е Коринфянам": "1 Коринфянам", "2-е Коринфянам": "2 Коринфянам",
+    "1-е Петра": "1 Петра", "2-е Петра": "2 Петра",
+    "1-е Иоанна": "1 Иоанна", "2-е Иоанна": "2 Иоанна",
+    "1-е Тимофею": "1 Тимофею", "2-е Тимофею": "2 Тимофею",
+    "1-е Фессалоникийцам": "1 Фессалоникийцам",
+    "2-е Фессалоникийцам": "2 Фессалоникийцам",
+    "Откровение Иоанна": "Откровение", "Апокалипсис": "Откровение",
+    "Пс": "Псалтирь", "Пс.": "Псалтирь",
+}
+
+
+def normalize_book(name: str) -> str:
+    """Нормализуем название книги через алиасы"""
+    return BOOK_ALIASES.get(name, name)
+
+
 def parse_ref(ref: str):
     """Разбираем ref на компоненты. Возвращает (book_num, chapter, verse_start) или None."""
     try:
         parts = ref.strip().split(" ")
         if parts[0].isdigit() and len(parts) >= 3:
-            book_ru = parts[0] + " " + parts[1]
+            book_ru = normalize_book(parts[0] + " " + parts[1])
             cv = parts[2]
         elif len(parts) >= 2:
-            book_ru = parts[0]
+            book_ru = normalize_book(parts[0])
             cv = parts[1]
         else:
             return None
@@ -259,7 +280,7 @@ async def get_bible_db(client: httpx.AsyncClient):
     if _bible_cache is not None:
         return _bible_cache
     try:
-        url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/ru_synodal_fixed.json"
+        url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/ru_synodal.json"
         r = await client.get(url, timeout=30)
         if r.status_code == 200:
             _bible_cache = r.json()
@@ -270,12 +291,8 @@ async def get_bible_db(client: httpx.AsyncClient):
     return None
 
 
-# Порядок книг в ru_synodal.json (thiagobodruk) совпадает со стандартным:
-# индекс 0 = Бытие, 1 = Исход, ... 38 = Малахия, 39 = Матфей, ... 65 = Откровение
-# Наша BOOK_NUM начинается с 1, значит индекс = BOOK_NUM - 1
-# НО bible.by имеет нестандартный порядок НЗ (соборные перед Павлом)
-# ru_synodal.json имеет СТАНДАРТНЫЙ порядок (Рим после Деян)
-# Поэтому нам нужна отдельная карта для индексов в JSON файле
+# Порядок книг в ru_synodal.json совпадает со стандартным:
+# 0=Бытие, 38=Малахия, 39=Матфей, 65=Откровение
 BOOK_JSON_INDEX = {
     # Ветхий Завет (0-38)
     "Бытие": 0, "Исход": 1, "Левит": 2, "Числа": 3, "Второзаконие": 4,
@@ -309,10 +326,10 @@ async def fetch_bible_text(ref: str) -> str:
     try:
         parts = ref.strip().split(" ")
         if parts[0].isdigit() and len(parts) >= 3:
-            book_ru = parts[0] + " " + parts[1]
+            book_ru = normalize_book(parts[0] + " " + parts[1])
             cv = parts[2]
         elif len(parts) >= 2:
-            book_ru = parts[0]
+            book_ru = normalize_book(parts[0])
             cv = parts[1]
         else:
             return ""
