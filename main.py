@@ -246,26 +246,25 @@ def normalize_book(name: str) -> str:
 
 def parse_ref(ref: str):
     """Разбираем ref на компоненты. Возвращает (book_num, chapter, verse_start) или None."""
+    import re
     try:
-        parts = ref.strip().split(" ")
-        if parts[0].isdigit() and len(parts) >= 3:
-            book_ru = normalize_book(parts[0] + " " + parts[1])
-            cv = parts[2]
-        elif len(parts) >= 2:
-            book_ru = normalize_book(parts[0])
-            cv = parts[1]
-        else:
+        ref = ref.strip()
+        # Ищем паттерн "глава:стих" в конце строки (например "1:1-14" или "8:28")
+        m = re.search(r'(\d+:\d+(?:-\d+)?)$', ref)
+        if not m:
             return None
+        cv = m.group(1)
+        # Всё что до cv — название книги
+        book_ru = ref[:m.start()].strip()
+        book_ru = normalize_book(book_ru)
 
         book_num = BOOK_NUM.get(book_ru)
         if not book_num:
             return None
 
-        # cv может быть "1:21" или "8:28-30"
-        if ":" in cv:
-            chapter, verse_part = cv.split(":", 1)
-            verse_start = verse_part.split("-")[0]
-            return book_num, int(chapter), int(verse_start)
+        chapter, verse_part = cv.split(":", 1)
+        verse_start = verse_part.split("-")[0]
+        return book_num, int(chapter), int(verse_start)
     except Exception:
         pass
     return None
@@ -324,16 +323,12 @@ BOOK_JSON_INDEX = {
 async def fetch_bible_text(ref: str) -> str:
     """Текст Синодального перевода из bible_syn.json на GitHub"""
     try:
-        parts = ref.strip().split(" ")
-        if parts[0].isdigit() and len(parts) >= 3:
-            book_ru = normalize_book(parts[0] + " " + parts[1])
-            cv = parts[2]
-        elif len(parts) >= 2:
-            book_ru = normalize_book(parts[0])
-            cv = parts[1]
-        else:
+        import re as _re
+        m = _re.search(r'(\d+:\d+(?:-\d+)?)$', ref.strip())
+        if not m:
             return ""
-
+        cv = m.group(1)
+        book_ru = normalize_book(ref.strip()[:m.start()].strip())
         book_idx = BOOK_JSON_INDEX.get(book_ru)
         if book_idx is None:
             return ""
