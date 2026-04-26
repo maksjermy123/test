@@ -203,6 +203,36 @@
     }
     .trans-btn:active { background: #1b5e20; }
 
+    /* ── Expandable bible text ── */
+    .bible-text-wrap { position: relative; }
+    .bible-text {
+      max-height: 160px;
+      overflow: hidden;
+      position: relative;
+    }
+    .bible-text.expanded { max-height: none; }
+    .bible-text:not(.expanded)::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 40px;
+      background: linear-gradient(transparent, #f7f3ea);
+    }
+    .expand-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: none;
+      border: none;
+      padding: 6px 0 2px;
+      cursor: pointer;
+      font-family: 'Nunito', sans-serif;
+    }
+    .expand-btn.hidden { display: none; }
+
     /* ── Reflection ── */
     .reflection-body {
       padding: 14px 14px;
@@ -246,6 +276,21 @@
   function openLink(url) {
     if (tg?.openLink) tg.openLink(url);
     else window.open(url, "_blank");
+  }
+
+  function toggleText(btn, id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('expanded');
+    btn.textContent = el.classList.contains('expanded') ? 'Свернуть ↑' : 'Показать полностью ↓';
+  }
+
+  // Скрываем кнопку если текст короткий
+  function initExpandBtns() {
+    document.querySelectorAll('.bible-text').forEach(el => {
+      const btn = el.nextElementSibling;
+      if (btn && el.scrollHeight <= 165) btn.classList.add('hidden');
+    });
   }
 
   async function load() {
@@ -322,7 +367,11 @@
           ${roleLabel ? `<div class="bible-role">${roleLabel}</div>` : ""}
           <div class="bible-ref">${b.ref}</div>
           <div class="bible-theme">${b.theme}</div>
-          ${b.text_syn ? `<div class="bible-text">${b.text_syn}</div>` : ""}
+          ${b.text_syn ? `
+            <div class="bible-text-wrap">
+              <div class="bible-text" id="bt-${b.ref.replace(/[^a-z0-9]/gi,'')}">${b.text_syn}</div>
+              <button class="expand-btn" onclick="toggleText(this, 'bt-${b.ref.replace(/[^a-z0-9]/gi,'')}')">Показать полностью ↓</button>
+            </div>` : ""}
           <div class="trans-links">${btns}</div>
         </div>`;
       }).join("");
@@ -342,6 +391,7 @@
 
     html += '</div>';
     document.getElementById("app").innerHTML = html;
+    setTimeout(initExpandBtns, 50);
   }
 
   load();
