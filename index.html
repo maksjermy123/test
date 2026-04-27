@@ -513,13 +513,11 @@
     if (!currentPostId) return;
     haptic('medium');
     const url = `https://t.me/${CHANNEL}/${currentPostId}`;
-    if (tg?.shareUrl) {
-      tg.shareUrl(url, `Пост #${currentPostId} из канала @${CHANNEL}`);
+    // Открываем нативное меню Telegram для пересылки
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent('Интересный пост из канала «От чтения к Преображению»')}`);
     } else {
-      navigator.clipboard?.writeText(url).then(() => {
-        hapticNotif('success');
-        alert('Ссылка скопирована!');
-      });
+      window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}`, '_blank');
     }
   }
 
