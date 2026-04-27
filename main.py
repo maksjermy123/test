@@ -152,7 +152,7 @@ GROQ_PROMPT = """
   "related_posts": [id постов близких по богословской мысли, или [] если нет],
   "bible_refs": [
     {{
-      "ref": "Книга глава:стих-стих — название в ИМЕНИТЕЛЬНОМ падеже: Иоанн (не Иоанна!), Матфей (не Матфея!), Лука (не Луки!), Римлянам, Псалтирь, 1 Коринфянам, Иакова, Евреям",
+      "ref": "Книга глава:стих — ОБЯЗАТЕЛЬНО указывай конкретный стих! Формат: 'Бытие 3:15' или 'Римлянам 8:18-25'. Никогда не пиши просто главу без стиха (не 'Бытие 3'!). Название в именительном падеже: Иоанн, Матфей, Лука, Римлянам, Псалтирь, 1 Коринфянам",
       "theme": "одно предложение — почему этот текст в контексте мысли автора",
       "role": "автора или дополнительно"
     }}
@@ -183,7 +183,7 @@ RELATED_PROMPT = """
 Если нет действительно близких постов — верни пустой список.
 
 Ответь ТОЛЬКО валидным JSON без markdown:
-{{"related_posts": [список из 0-5 id постов]}}
+{{"related_posts": [0-3 наиболее близких поста]}}
 """
 
 github_lock = asyncio.Lock()
@@ -310,22 +310,29 @@ def parse_ref(ref: str):
     import re
     try:
         ref = ref.strip()
-        # Ищем паттерн "глава:стих" в конце строки (например "1:1-14" или "8:28")
+        # Убираем всё после " — " (ИИ иногда добавляет описание через тире)
+        ref = re.split(r' [—–-]{1,2} ', ref)[0].strip()
+
+        # Ищем паттерн "глава:стих" в конце строки
         m = re.search(r'(\d+:\d+(?:-\d+)?)$', ref)
-        if not m:
-            return None
-        cv = m.group(1)
-        # Всё что до cv — название книги
-        book_ru = ref[:m.start()].strip()
-        book_ru = normalize_book(book_ru)
+        if m:
+            cv = m.group(1)
+            book_ru = normalize_book(ref[:m.start()].strip())
+            book_num = BOOK_NUM.get(book_ru)
+            if not book_num:
+                return None
+            chapter, verse_part = cv.split(":", 1)
+            verse_start = verse_part.split("-")[0]
+            return book_num, int(chapter), int(verse_start)
 
-        book_num = BOOK_NUM.get(book_ru)
-        if not book_num:
-            return None
-
-        chapter, verse_part = cv.split(":", 1)
-        verse_start = verse_part.split("-")[0]
-        return book_num, int(chapter), int(verse_start)
+        # Если только глава без стиха (например "Бытие 3") — берём стих 1
+        m2 = re.search(r'(\d+)$', ref)
+        if m2:
+            chapter = m2.group(1)
+            book_ru = normalize_book(ref[:m2.start()].strip())
+            book_num = BOOK_NUM.get(book_ru)
+            if book_num:
+                return book_num, int(chapter), 1
     except Exception:
         pass
     return None
@@ -382,14 +389,32 @@ BOOK_JSON_INDEX = {
 
 
 async def fetch_bible_text(ref: str) -> str:
-    """Текст Синодального перевода из bible_syn.json на GitHub"""
+    """Текст Синодального перевода из ru_synodal.json на GitHub"""
     try:
         import re as _re
-        m = _re.search(r'(\d+:\d+(?:-\d+)?)$', ref.strip())
+        # Убираем описание после тире: "Бытие 3 — Книга Бытия" -> "Бытие 3"
+        ref = _re.split(r' [—–-]{1,2} ', ref.strip())[0].strip()
+
+        m = _re.search(r'(\d+:\d+(?:-\d+)?)$', ref)
         if not m:
-            return ""
+            # Только глава без стиха — берём первые 5 стихов
+            m2 = _re.search(r'(\d+)$', ref)
+            if not m2:
+                return ""
+            chapter = int(m2.group(1)) - 1
+            book_ru = normalize_book(ref[:m2.start()].strip())
+            book_idx = BOOK_JSON_INDEX.get(book_ru)
+            if book_idx is None:
+                return ""
+            async with httpx.AsyncClient(timeout=15) as client:
+                bible = await get_bible_db(client)
+            if not bible or chapter >= len(bible[book_idx]["chapters"]):
+                return ""
+            verses = bible[book_idx]["chapters"][chapter][:5]
+            return " ".join(f"{i+1} {v}" for i, v in enumerate(verses))
+
         cv = m.group(1)
-        book_ru = normalize_book(ref.strip()[:m.start()].strip())
+        book_ru = normalize_book(ref[:m.start()].strip())
         book_idx = BOOK_JSON_INDEX.get(book_ru)
         if book_idx is None:
             return ""
@@ -496,6 +521,39 @@ async def analyze_post(post_text: str, topics: list):
         return json.loads(text)
 
 
+# ── Кнопка "Глубже" под постом ───────────────────────────────
+async def send_deeper_button(post_id: int):
+    """Отправляем inline-кнопку под пост в канале"""
+    # Получаем URL нашего Mini App
+    miniapp_url = f"https://maksjermy123.github.io/test/?post_id={post_id}"
+
+    payload = {
+        "chat_id": CHANNEL_ID,
+        "message_id": post_id,
+        "reply_markup": {
+            "inline_keyboard": [[
+                {
+                    "text": "📚 Глубже",
+                    "web_app": {"url": miniapp_url}
+                }
+            ]]
+        }
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(
+                f"{TELEGRAM_API}/editMessageReplyMarkup",
+                json=payload
+            )
+            result = r.json()
+            if result.get("ok"):
+                print(f"✅ Кнопка 'Глубже' добавлена к посту {post_id}")
+            else:
+                print(f"⚠️ Ошибка кнопки: {result.get('description')}")
+    except Exception as e:
+        print(f"Button error for post {post_id}: {e}")
+
+
 # ── Обработка поста ───────────────────────────────────────────
 async def process_post(post: dict):
     post_id = post.get("message_id") or post.get("id")
@@ -540,7 +598,7 @@ async def process_post(post: dict):
             result["post_id"] = post_id
             result["topics"] = topics
             result["quotes"] = []
-            result["related_posts"] = related
+            result["related_posts"] = related[:2]  # показываем только 2 самых близких
 
             # Подтягиваем текст и ссылки на переводы для каждого стиха
             for bible_ref in result.get("bible_refs", []):
@@ -554,6 +612,9 @@ async def process_post(post: dict):
             links_data[str(post_id)] = result
             await github_put(client, "links.json", links_data, links_sha, f"Links for post {post_id}")
             print(f"Post {post_id} processed OK.")
+
+            # Отправляем кнопку "Глубже" под пост в канале
+            await send_deeper_button(post_id)
 
 
 # ── Эндпоинты ─────────────────────────────────────────────────
