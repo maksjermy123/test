@@ -92,19 +92,7 @@
       opacity: 0.85;
       margin-top: 1px;
     }
-    .header-actions { display: flex; gap: 8px; }
-    .header-btn {
-      background: rgba(255,255,255,0.2);
-      border: none;
-      border-radius: 8px;
-      color: #fff;
-      font-size: 1rem;
-      width: 34px; height: 34px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .header-btn:active { background: rgba(255,255,255,0.35); }
+
 
     /* ── Skeleton loading ── */
     .skeleton-wrap {
@@ -375,6 +363,36 @@
     .reflection-body::before { content: '«'; color: var(--accent); }
     .reflection-body::after  { content: '»'; color: var(--accent); }
 
+    /* ── Bottom action buttons ── */
+    .bottom-actions {
+      padding: 4px 12px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .bottom-btn {
+      width: 100%;
+      padding: 13px;
+      border-radius: 12px;
+      border: none;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s;
+    }
+    .bottom-btn:active { opacity: 0.8; }
+    .bottom-btn.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .bottom-btn:not(.primary) {
+      background: var(--card);
+      color: var(--accent);
+      border: 1.5px solid var(--border);
+    }
+
     /* ── Share button ── */
     .share-bar {
       padding: 4px 12px 0;
@@ -412,10 +430,7 @@
     <h1>📚 Глубже</h1>
     <p id="header-sub">Загрузка...</p>
   </div>
-  <div class="header-actions">
-    <button class="header-btn" onclick="openPostInChannel()" title="Открыть пост в канале">↗</button>
-    <button class="header-btn" onclick="sharePost()" title="Поделиться">⬆</button>
-  </div>
+
 </div>
 
 <div id="app">
@@ -749,6 +764,12 @@
         <div class="reflection-body">${data.reflection}</div>
       </div>`;
     }
+
+    // Кнопки внизу
+    html += `<div class="bottom-actions">
+      <button class="bottom-btn primary" onclick="openPostInChannel()">↗ Открыть пост в канале</button>
+      <button class="bottom-btn" onclick="sharePost()">⬆ Поделиться</button>
+    </div>`;
 
     html += '</div>';
 
