@@ -442,7 +442,7 @@ async def find_related_posts(post_text: str, all_posts: dict) -> list:
         })
     prompt = RELATED_PROMPT.format(
         post_text=post_text,
-        all_posts=json.dumps(posts_summary, ensure_ascii=False)[:10000]
+        all_posts=json.dumps(posts_summary, ensure_ascii=False)[:15000]
     )
     payload = {
         "model": "llama-3.3-70b-versatile",
@@ -463,11 +463,10 @@ async def find_related_posts(post_text: str, all_posts: dict) -> list:
 
 
 # ── Groq анализ ───────────────────────────────────────────────
-async def analyze_post(post_text: str, topics: list, all_posts: dict):
+async def analyze_post(post_text: str, topics: list):
     prompt = GROQ_PROMPT.format(
         post_text=post_text,
         topics=", ".join(topics),
-        all_posts=json.dumps(all_posts, ensure_ascii=False)[:8000],
     )
     payload = {
         "model": "llama-3.3-70b-versatile",
@@ -505,7 +504,7 @@ async def process_post(post: dict):
             if post_id not in existing_ids:
                 posts_data["posts"].append({
                     "id": post_id,
-                    "text": text[:2000],
+                    "text": text[:3000],  # для хранения в posts.json
                     "topics": topics,
                     "date": datetime.utcnow().isoformat(),
                 })
@@ -516,7 +515,7 @@ async def process_post(post: dict):
             # Параллельно запускаем анализ и поиск связанных постов
             try:
                 result, related = await asyncio.gather(
-                    analyze_post(text, topics, posts_data),
+                    analyze_post(text, topics),
                     find_related_posts(text, posts_data)
                 )
             except Exception as e:
