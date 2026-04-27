@@ -413,7 +413,7 @@
     <p id="header-sub">Загрузка...</p>
   </div>
   <div class="header-actions">
-    <button class="header-btn" onclick="openPostInChannel()" title="Открыть пост">↗</button>
+    <button class="header-btn" onclick="openPostInChannel()" title="Открыть пост в канале">↗</button>
     <button class="header-btn" onclick="sharePost()" title="Поделиться">⬆</button>
   </div>
 </div>
@@ -675,12 +675,6 @@
 
     let html = '<div class="content">';
 
-    // Кнопки действий
-    html += `<div class="share-bar">
-      <button class="share-btn" onclick="openPostInChannel()">↗ Открыть пост</button>
-      <button class="share-btn" onclick="sharePost()">⬆ Поделиться</button>
-    </div>`;
-
     // Темы
     if (data.topics?.length) {
       html += `<div class="card">
@@ -728,7 +722,7 @@
           ${roleLabel ? `<div class="bible-role">${roleLabel}</div>` : ""}
           <div class="bible-ref-row">
             <span class="bible-ref">${refStr}</span>
-            ${vc ? `<span class="bible-verse-count">${vc}</span>` : ""}
+            ${vc ? `<span class="bible-verse-count"> · ${vc}</span>` : ""}
           </div>
           <div class="bible-theme">${b.theme || ""}</div>
           ${b.text_syn ? `
