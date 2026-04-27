@@ -522,20 +522,29 @@ async def analyze_post(post_text: str, topics: list):
 
 
 # ── Кнопка "Глубже" под постом ───────────────────────────────
+# Имя бота для формирования ссылки на Mini App
+BOT_USERNAME = "my_channel_index_bot"
+
 async def send_deeper_button(post_id: int):
-    """Отправляем inline-кнопку под пост в канале"""
-    miniapp_url = f"https://maksjermy123.github.io/test/?post_id={post_id}"
+    """Отправляем inline-кнопку под пост в канале.
+    
+    web_app кнопки запрещены в каналах — используем url кнопку.
+    Формат ссылки: t.me/BOT?startapp=POST_ID открывает Mini App.
+    """
+    # Ссылка которая открывает Mini App через бота
+    miniapp_url = f"https://t.me/{BOT_USERNAME}?startapp={post_id}"
+
     keyboard = {
         "inline_keyboard": [[
             {
                 "text": "📚 Глубже",
-                "web_app": {"url": miniapp_url}
+                "url": miniapp_url
             }
         ]]
     }
 
     async with httpx.AsyncClient(timeout=10) as client:
-        # Вариант 1: editMessageReplyMarkup (добавить кнопку к существующему посту)
+        # Пробуем добавить кнопку к существующему посту
         r = await client.post(
             f"{TELEGRAM_API}/editMessageReplyMarkup",
             json={
@@ -545,30 +554,28 @@ async def send_deeper_button(post_id: int):
             }
         )
         result = r.json()
-        print(f"editMessageReplyMarkup response: {result}")
+        print(f"editMessageReplyMarkup: {result}")
 
         if result.get("ok"):
-            print(f"✅ Кнопка добавлена к посту {post_id}")
+            print(f"✅ Кнопка '📚 Глубже' добавлена к посту {post_id}")
             return
 
-        # Вариант 2: если edit не сработал — отправляем отдельное сообщение
+        # Если edit не сработал — отправляем отдельное сообщение-кнопку
         print(f"⚠️ edit failed: {result.get('description')} — пробуем sendMessage")
         r2 = await client.post(
             f"{TELEGRAM_API}/sendMessage",
             json={
                 "chat_id": CHANNEL_ID,
-                "text": "📚 *Читать глубже* — библейский контекст и связи этого поста",
-                "parse_mode": "Markdown",
+                "text": "📚 Библейский контекст и связи этого поста",
                 "reply_to_message_id": post_id,
                 "reply_markup": keyboard
             }
         )
         result2 = r2.json()
-        print(f"sendMessage response: {result2}")
         if result2.get("ok"):
-            print(f"✅ Кнопка отправлена отдельным сообщением к посту {post_id}")
+            print(f"✅ Кнопка отправлена отдельным сообщением")
         else:
-            print(f"❌ Оба варианта не сработали: {result2.get('description')}")
+            print(f"❌ Ошибка: {result2.get('description')}")
 
 
 # ── Обработка поста ───────────────────────────────────────────
