@@ -524,34 +524,51 @@ async def analyze_post(post_text: str, topics: list):
 # ── Кнопка "Глубже" под постом ───────────────────────────────
 async def send_deeper_button(post_id: int):
     """Отправляем inline-кнопку под пост в канале"""
-    # Получаем URL нашего Mini App
     miniapp_url = f"https://maksjermy123.github.io/test/?post_id={post_id}"
-
-    payload = {
-        "chat_id": CHANNEL_ID,
-        "message_id": post_id,
-        "reply_markup": {
-            "inline_keyboard": [[
-                {
-                    "text": "📚 Глубже",
-                    "web_app": {"url": miniapp_url}
-                }
-            ]]
-        }
+    keyboard = {
+        "inline_keyboard": [[
+            {
+                "text": "📚 Глубже",
+                "web_app": {"url": miniapp_url}
+            }
+        ]]
     }
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.post(
-                f"{TELEGRAM_API}/editMessageReplyMarkup",
-                json=payload
-            )
-            result = r.json()
-            if result.get("ok"):
-                print(f"✅ Кнопка 'Глубже' добавлена к посту {post_id}")
-            else:
-                print(f"⚠️ Ошибка кнопки: {result.get('description')}")
-    except Exception as e:
-        print(f"Button error for post {post_id}: {e}")
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        # Вариант 1: editMessageReplyMarkup (добавить кнопку к существующему посту)
+        r = await client.post(
+            f"{TELEGRAM_API}/editMessageReplyMarkup",
+            json={
+                "chat_id": CHANNEL_ID,
+                "message_id": post_id,
+                "reply_markup": keyboard
+            }
+        )
+        result = r.json()
+        print(f"editMessageReplyMarkup response: {result}")
+
+        if result.get("ok"):
+            print(f"✅ Кнопка добавлена к посту {post_id}")
+            return
+
+        # Вариант 2: если edit не сработал — отправляем отдельное сообщение
+        print(f"⚠️ edit failed: {result.get('description')} — пробуем sendMessage")
+        r2 = await client.post(
+            f"{TELEGRAM_API}/sendMessage",
+            json={
+                "chat_id": CHANNEL_ID,
+                "text": "📚 *Читать глубже* — библейский контекст и связи этого поста",
+                "parse_mode": "Markdown",
+                "reply_to_message_id": post_id,
+                "reply_markup": keyboard
+            }
+        )
+        result2 = r2.json()
+        print(f"sendMessage response: {result2}")
+        if result2.get("ok"):
+            print(f"✅ Кнопка отправлена отдельным сообщением к посту {post_id}")
+        else:
+            print(f"❌ Оба варианта не сработали: {result2.get('description')}")
 
 
 # ── Обработка поста ───────────────────────────────────────────
