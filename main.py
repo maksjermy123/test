@@ -531,8 +531,8 @@ async def send_deeper_button(post_id: int):
     web_app кнопки запрещены в каналах — используем url кнопку.
     Формат ссылки: t.me/BOT?startapp=POST_ID открывает Mini App.
     """
-    # Ссылка которая открывает Mini App через бота
-    miniapp_url = f"https://t.me/{BOT_USERNAME}?startapp={post_id}"
+    # Правильный формат для Mini App: t.me/BOT/APPNAME?startapp=POST_ID
+    miniapp_url = f"https://t.me/{BOT_USERNAME}/deeper?startapp={post_id}"
 
     keyboard = {
         "inline_keyboard": [[
@@ -589,6 +589,30 @@ async def process_post(post: dict):
     topics = [HASHTAG_MAP[w] for w in words if w in HASHTAG_MAP and w not in IGNORE_TAGS]
     if not topics:
         print(f"Post {post_id}: no hashtags, skipping.")
+        return
+
+    # Для юмора — специальный ответ без ИИ
+    if "😄 Юмор" in topics or "Юмор" in topics:
+        humor_result = {
+            "post_id": post_id,
+            "topics": topics,
+            "related_posts": [],
+            "bible_refs": [],
+            "quotes": [],
+            "reflection": "",
+            "humor": True,
+            "humor_text": "«Серьёзность человека, обладающего чувством юмора, намного серьёзнее серьёзности серьёзного человека»",
+            "humor_author": "А. П. Чехов"
+        }
+        async with github_lock:
+            async with httpx.AsyncClient(timeout=20) as client:
+                links_data, links_sha = await github_get(client, "links.json")
+                if links_data is None:
+                    links_data = {}
+                links_data[str(post_id)] = humor_result
+                await github_put(client, "links.json", links_data, links_sha, f"Humor post {post_id}")
+        await send_deeper_button(post_id)
+        print(f"😄 Humor post {post_id} saved.")
         return
 
     async with github_lock:
@@ -655,10 +679,64 @@ async def root_head():
 @app.post("/webhook")
 async def webhook(request: Request):
     data = await request.json()
-    post = data.get("channel_post") or data.get("message")
+
+    # Обрабатываем сообщения канала
+    post = data.get("channel_post")
     if post:
         asyncio.create_task(process_post(post))
+        return {"ok": True}
+
+    # Обрабатываем личные сообщения пользователей
+    message = data.get("message")
+    if message:
+        asyncio.create_task(handle_user_message(message))
+
     return {"ok": True}
+
+
+async def handle_user_message(message: dict):
+    """Обрабатываем сообщения пользователей боту"""
+    chat_id = message.get("chat", {}).get("id")
+    text = message.get("text", "")
+
+    if not chat_id:
+        return
+
+    # Извлекаем post_id из start_param: /start 312
+    post_id = None
+    if text.startswith("/start"):
+        parts = text.split()
+        if len(parts) > 1:
+            try:
+                post_id = int(parts[1])
+            except ValueError:
+                pass
+
+    miniapp_url = f"https://maksjermy123.github.io/test/"
+    if post_id:
+        miniapp_url += f"?post_id={post_id}"
+
+    # Отправляем кнопку web_app — она открывает Mini App без перехода
+    payload = {
+        "chat_id": chat_id,
+        "text": "📚 Нажми чтобы открыть материалы поста:",
+        "reply_markup": {
+            "inline_keyboard": [[
+                {
+                    "text": "📚 Глубже",
+                    "web_app": {"url": miniapp_url}
+                }
+            ]]
+        }
+    }
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.post(f"{TELEGRAM_API}/sendMessage", json=payload)
+        result = r.json()
+        if result.get("ok"):
+            print(f"✅ Отправлена web_app кнопка пользователю {chat_id} для поста {post_id}")
+        else:
+            print(f"⚠️ Ошибка: {result.get('description')}")
 
 
 @app.get("/links/{post_id}")
@@ -689,7 +767,7 @@ async def set_webhook(request: Request):
     url = f"{TELEGRAM_API}/setWebhook"
     payload = {
         "url": f"{base_url}/webhook",
-        "allowed_updates": ["message", "channel_post"],
+        "allowed_updates": ["message", "channel_post", "callback_query"],
     }
     async with httpx.AsyncClient() as client:
         r = await client.post(url, json=payload)
