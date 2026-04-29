@@ -363,6 +363,35 @@
     .reflection-body::before { content: '«'; color: var(--accent); }
     .reflection-body::after  { content: '»'; color: var(--accent); }
 
+    /* ── Humor card ── */
+    .humor-card {
+      background: var(--card);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fadeUp 0.35s ease forwards;
+      padding: 24px 20px;
+      text-align: center;
+    }
+    .humor-emoji { font-size: 2.5rem; margin-bottom: 12px; }
+    .humor-quote {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.15rem;
+      font-style: italic;
+      line-height: 1.65;
+      color: var(--text);
+    }
+    .humor-quote::before { content: '«'; color: var(--accent); }
+    .humor-quote::after  { content: '»'; color: var(--accent); }
+    .humor-author {
+      margin-top: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
     /* ── Bottom action buttons ── */
     .bottom-actions {
       padding: 4px 12px 8px;
@@ -687,6 +716,21 @@
     sub.textContent = `Пост #${postId}`;
 
     let html = '<div class="content">';
+
+    // Юмор — специальная карточка
+    if (data.humor) {
+      html += `<div class="humor-card">
+        <div class="humor-emoji">😄</div>
+        <div class="humor-quote">${data.humor_text.replace('«','').replace('»','')}</div>
+        <div class="humor-author">— ${data.humor_author}</div>
+      </div>`;
+      html += `<div class="bottom-actions">
+        <button class="bottom-btn primary" onclick="openPostInChannel()">↗ Открыть пост в канале</button>
+        <button class="bottom-btn" onclick="sharePost()">⬆ Поделиться</button>
+      </div></div>`;
+      document.getElementById("app").innerHTML = html;
+      return;
+    }
 
     // Темы
     if (data.topics?.length) {
