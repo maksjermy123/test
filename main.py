@@ -22,7 +22,7 @@ BOT_TOKEN    = "8705181884:AAGgfwunSu71wYcipiqdqIxdVQL_3kU_k14"
 CHANNEL_ID   = "@Testovuj"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO  = "maksjermy123/test"
-GROQ_API_KEY = "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"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 GITHUB_API   = "https://api.github.com"
