@@ -743,7 +743,7 @@ async def process_post(post: dict):
             # Обновляем двусторонние связи у похожих постов
             if result["related_posts"]:
                 await update_related_bidirectional(
-                    post_id, result["related_posts"], posts_data, links_data
+                    post_id, result["related_posts"], links_data
                 )
 
             await github_put(client, "links.json", links_data, links_sha, f"Links for post {post_id}")
