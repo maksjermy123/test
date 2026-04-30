@@ -22,7 +22,13 @@ BOT_TOKEN    = "8705181884:AAGgfwunSu71wYcipiqdqIxdVQL_3kU_k14"
 CHANNEL_ID   = "@Testovuj"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO  = "maksjermy123/test"
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_API_KEY    = os.environ.get("GROQ_API_KEY", "")
+COHERE_API_KEY  = os.environ.get("COHERE_API_KEY", "")
+COHERE_API      = "https://api.cohere.com/v2/embed"
+COHERE_HEADERS  = lambda: {
+    "Authorization": f"Bearer {COHERE_API_KEY}",
+    "Content-Type": "application/json",
+}
 
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 GITHUB_API   = "https://api.github.com"
@@ -338,6 +344,70 @@ def parse_ref(ref: str):
     return None
 
 
+# ── Embeddings и векторный поиск ────────────────────────────
+import math
+
+def cosine_similarity(a: list, b: list) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+async def get_embedding(text: str):
+    """Embedding через Cohere multilingual-v3.0"""
+    if not COHERE_API_KEY:
+        return None
+    try:
+        payload = {
+            "texts": [text[:2000]],
+            "model": "embed-multilingual-v3.0",
+            "input_type": "search_document",
+            "embedding_types": ["float"],
+        }
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                COHERE_API,
+                headers=COHERE_HEADERS(),
+                json=payload
+            )
+            r.raise_for_status()
+            return r.json()["embeddings"]["float"][0]
+    except Exception as e:
+        print(f"Embedding error: {e}")
+        return None
+
+
+async def find_related_by_embedding(post_id: int, embedding: list, posts_data: dict, top_k: int = 2) -> list:
+    """Семантический поиск похожих постов через cosine similarity"""
+    scores = []
+    for post in posts_data.get("posts", []):
+        if post["id"] == post_id:
+            continue
+        emb = post.get("embedding")
+        if not emb:
+            continue
+        sim = cosine_similarity(embedding, emb)
+        scores.append((post["id"], sim))
+    scores.sort(key=lambda x: x[1], reverse=True)
+    result = [pid for pid, score in scores[:top_k] if score > 0.3]
+    print(f"Vector search for {post_id}: top matches = {[(pid, round(s,3)) for pid,s in scores[:5]]}")
+    return result
+
+
+async def update_related_bidirectional(post_id: int, related_ids: list, links_data: dict) -> None:
+    """Обновляем related_posts двусторонне"""
+    for rel_id in related_ids:
+        rel_key = str(rel_id)
+        if rel_key not in links_data:
+            continue
+        current = links_data[rel_key].get("related_posts", [])
+        if post_id not in current:
+            links_data[rel_key]["related_posts"] = ([post_id] + current)[:2]
+
+
 # Кэш библейской базы (загружается один раз)
 _bible_cache = None
 
@@ -623,22 +693,34 @@ async def process_post(post: dict):
 
             existing_ids = {p["id"] for p in posts_data["posts"]}
             if post_id not in existing_ids:
+                # Генерируем embedding для нового поста
+                embedding = await get_embedding(text)
                 posts_data["posts"].append({
                     "id": post_id,
-                    "text": text[:3000],  # для хранения в posts.json
+                    "text": text[:3000],
                     "topics": topics,
                     "date": datetime.utcnow().isoformat(),
+                    "embedding": embedding,  # вектор для семантического поиска
                 })
                 posts_data["total"] = len(posts_data["posts"])
                 posts_data["updated"] = datetime.utcnow().isoformat()
                 await github_put(client, "posts.json", posts_data, posts_sha, f"Add post {post_id}")
+            else:
+                # Пост уже есть — берём его embedding если есть
+                existing = next((p for p in posts_data["posts"] if p["id"] == post_id), None)
+                embedding = existing.get("embedding") if existing else None
+                if not embedding:
+                    embedding = await get_embedding(text)
 
-            # Параллельно запускаем анализ и поиск связанных постов
+            # Анализ Библии + векторный поиск параллельно
             try:
+                related_task = find_related_by_embedding(post_id, embedding, posts_data)                     if embedding else asyncio.sleep(0)
                 result, related = await asyncio.gather(
                     analyze_post(text, topics),
-                    find_related_posts(text, posts_data)
+                    related_task
                 )
+                if not embedding:
+                    related = []
             except Exception as e:
                 print(f"Groq error for post {post_id}: {e}")
                 return
@@ -646,7 +728,7 @@ async def process_post(post: dict):
             result["post_id"] = post_id
             result["topics"] = topics
             result["quotes"] = []
-            result["related_posts"] = related[:2]  # показываем только 2 самых близких
+            result["related_posts"] = related if related else []
 
             # Подтягиваем текст и ссылки на переводы для каждого стиха
             for bible_ref in result.get("bible_refs", []):
@@ -658,8 +740,14 @@ async def process_post(post: dict):
             if links_data is None:
                 links_data = {}
             links_data[str(post_id)] = result
+            # Обновляем двусторонние связи у похожих постов
+            if result["related_posts"]:
+                await update_related_bidirectional(
+                    post_id, result["related_posts"], posts_data, links_data
+                )
+
             await github_put(client, "links.json", links_data, links_sha, f"Links for post {post_id}")
-            print(f"Post {post_id} processed OK.")
+            print(f"Post {post_id} processed OK. Related: {result['related_posts']}")
 
             # Отправляем кнопку "Глубже" под пост в канале
             await send_deeper_button(post_id)
@@ -759,6 +847,32 @@ async def manual_analyze(post_id: int):
         return JSONResponse(status_code=404, content={"error": f"post {post_id} not found"})
     asyncio.create_task(process_post({"message_id": post_id, "text": post["text"]}))
     return {"ok": True, "message": f"Analysis started for post {post_id}"}
+
+
+@app.post("/reindex")
+async def reindex_all():
+    """Пересчитываем embeddings для всех постов у которых их нет"""
+    async with httpx.AsyncClient(timeout=20) as client:
+        posts_data, posts_sha = await github_get(client, "posts.json")
+    if not posts_data:
+        return {"error": "posts.json not found"}
+
+    updated = 0
+    for post in posts_data.get("posts", []):
+        if post.get("embedding"):
+            continue  # уже есть
+        emb = await get_embedding(post.get("text", ""))
+        if emb:
+            post["embedding"] = emb
+            updated += 1
+        await asyncio.sleep(0.5)  # не перегружаем API
+
+    if updated > 0:
+        async with httpx.AsyncClient(timeout=20) as client:
+            _, sha = await github_get(client, "posts.json")
+            await github_put(client, "posts.json", posts_data, sha, f"Reindex: added {updated} embeddings")
+
+    return {"ok": True, "updated": updated, "total": len(posts_data.get("posts", []))}
 
 
 @app.get("/set_webhook")
