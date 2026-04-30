@@ -714,7 +714,7 @@ async def process_post(post: dict):
 
             # Анализ Библии + векторный поиск параллельно
             try:
-                related_task = find_related_by_embedding(post_id, embedding, posts_data)                     if embedding else asyncio.sleep(0)
+                related_task = find_related_by_embedding(post_id, embedding, posts_data) if embedding else asyncio.sleep(0)
                 result, related = await asyncio.gather(
                     analyze_post(text, topics),
                     related_task
@@ -849,7 +849,7 @@ async def manual_analyze(post_id: int):
     return {"ok": True, "message": f"Analysis started for post {post_id}"}
 
 
-@app.post("/reindex")
+@app.get("/reindex")
 async def reindex_all():
     """Пересчитываем embeddings для всех постов у которых их нет"""
     async with httpx.AsyncClient(timeout=20) as client:
