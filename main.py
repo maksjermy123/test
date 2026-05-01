@@ -25,6 +25,7 @@ GITHUB_REPO  = "maksjermy123/test"
 GROQ_API_KEY    = os.environ.get("GROQ_API_KEY", "")
 COHERE_API_KEY  = os.environ.get("COHERE_API_KEY", "")
 COHERE_API      = "https://api.cohere.com/v2/embed"
+COHERE_RERANK   = "https://api.cohere.com/v2/rerank"
 COHERE_HEADERS  = lambda: {
     "Authorization": f"Bearer {COHERE_API_KEY}",
     "Content-Type": "application/json",
@@ -408,6 +409,89 @@ async def update_related_bidirectional(post_id: int, related_ids: list, links_da
             links_data[rel_key]["related_posts"] = ([post_id] + current)[:2]
 
 
+# ── Богословская база комментариев ───────────────────────────
+_theology_cache = None
+
+async def get_theology_db() -> list:
+    """Загружаем theology_db из GitHub (3 части)"""
+    global _theology_cache
+    if _theology_cache is not None:
+        return _theology_cache
+    
+    all_records = []
+    async with httpx.AsyncClient(timeout=30) as client:
+        for part in range(1, 4):
+            url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/theology_db_{part}.json"
+            try:
+                r = await client.get(url)
+                if r.status_code == 200:
+                    records = r.json()
+                    all_records.extend(records)
+                    print(f"Theology DB part {part}: {len(records)} записей")
+            except Exception as e:
+                print(f"Theology DB part {part} error: {e}")
+    
+    _theology_cache = all_records
+    print(f"Theology DB loaded: {len(all_records)} записей")
+    return all_records
+
+
+async def find_theology_quotes(post_text: str, top_n: int = 2) -> list:
+    """Ищем релевантные богословские комментарии через Cohere Rerank"""
+    if not COHERE_API_KEY:
+        return []
+    
+    try:
+        db = await get_theology_db()
+        if not db:
+            return []
+        
+        # Случайная выборка 500 документов для Rerank
+        import random
+        sample_size = min(500, len(db))
+        sample = random.sample(db, sample_size)
+        
+        documents = [rec["text"][:400] for rec in sample]
+        
+        payload = {
+            "model": "rerank-multilingual-v3.0",
+            "query": post_text[:1000],
+            "documents": documents,
+            "top_n": top_n,
+            "return_documents": True,
+        }
+        
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.post(
+                COHERE_RERANK,
+                headers=COHERE_HEADERS(),
+                json=payload
+            )
+            r.raise_for_status()
+            results = r.json().get("results", [])
+        
+        quotes = []
+        for res in results:
+            idx = res["index"]
+            score = res["relevance_score"]
+            if score < 0.3:  # минимальный порог релевантности
+                continue
+            rec = sample[idx]
+            quotes.append({
+                "author": rec["author"],
+                "title": rec["title"],
+                "text": rec["text"][:500],
+                "score": round(score, 3)
+            })
+        
+        print(f"Theology search: found {len(quotes)} quotes (scores: {[q['score'] for q in quotes]})")
+        return quotes
+        
+    except Exception as e:
+        print(f"Theology search error: {e}")
+        return []
+
+
 # Кэш библейской базы (загружается один раз)
 _bible_cache = None
 
@@ -712,12 +796,13 @@ async def process_post(post: dict):
                 if not embedding:
                     embedding = await get_embedding(text)
 
-            # Анализ Библии + векторный поиск параллельно
+            # Анализ Библии + векторный поиск + богословские цитаты параллельно
             try:
                 related_task = find_related_by_embedding(post_id, embedding, posts_data) if embedding else asyncio.sleep(0)
-                result, related = await asyncio.gather(
+                result, related, theology_quotes = await asyncio.gather(
                     analyze_post(text, topics),
-                    related_task
+                    related_task,
+                    find_theology_quotes(text)
                 )
                 if not embedding:
                     related = []
@@ -727,7 +812,7 @@ async def process_post(post: dict):
 
             result["post_id"] = post_id
             result["topics"] = topics
-            result["quotes"] = []
+            result["quotes"] = theology_quotes  # реальные цитаты богословов
             result["related_posts"] = related if related else []
 
             # Подтягиваем текст и ссылки на переводы для каждого стиха
@@ -873,6 +958,15 @@ async def reindex_all():
             await github_put(client, "posts.json", posts_data, sha, f"Reindex: added {updated} embeddings")
 
     return {"ok": True, "updated": updated, "total": len(posts_data.get("posts", []))}
+
+
+@app.get("/reload_theology")
+async def reload_theology():
+    """Сбрасываем кэш богословской базы (после обновления файлов)"""
+    global _theology_cache
+    _theology_cache = None
+    db = await get_theology_db()
+    return {"ok": True, "loaded": len(db)}
 
 
 @app.get("/set_webhook")
