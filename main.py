@@ -436,7 +436,7 @@ async def get_theology_db() -> list:
     return all_records
 
 
-async def find_theology_quotes(post_text: str, top_n: int = 2) -> list:
+async def find_theology_quotes(post_text: str, top_n: int = 3) -> list:
     """Ищем релевантные богословские комментарии через Cohere Rerank"""
     if not COHERE_API_KEY:
         return []
@@ -446,10 +446,22 @@ async def find_theology_quotes(post_text: str, top_n: int = 2) -> list:
         if not db:
             return []
         
-        # Случайная выборка 500 документов для Rerank
+        # Стратифицированная выборка — берём равномерно от каждого автора
         import random
-        sample_size = min(500, len(db))
-        sample = random.sample(db, sample_size)
+        from collections import defaultdict
+        
+        by_author = defaultdict(list)
+        for rec in db:
+            by_author[rec["author"]].append(rec)
+        
+        sample = []
+        per_author = min(300, 1500 // max(len(by_author), 1))
+        for author, recs in by_author.items():
+            selected = random.sample(recs, min(per_author, len(recs)))
+            sample.extend(selected)
+        
+        random.shuffle(sample)
+        sample = sample[:1500]  # максимум 1500 для Cohere
         
         documents = [rec["text"][:400] for rec in sample]
         
@@ -474,7 +486,7 @@ async def find_theology_quotes(post_text: str, top_n: int = 2) -> list:
         for res in results:
             idx = res["index"]
             score = res["relevance_score"]
-            if score < 0.3:  # минимальный порог релевантности
+            if score < 0.15:  # минимальный порог релевантности
                 continue
             rec = sample[idx]
             quotes.append({
