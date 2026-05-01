@@ -479,7 +479,7 @@ async def find_theology_quotes(post_text: str, top_n: int = 2) -> list:
             rec = sample[idx]
             quotes.append({
                 "author": rec["author"],
-                "title": rec["title"],
+                "title": rec.get("title", ""),
                 "text": rec["text"][:500],
                 "score": round(score, 3)
             })
