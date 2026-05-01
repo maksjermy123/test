@@ -482,10 +482,28 @@ async def find_theology_quotes(post_text: str, top_n: int = 3) -> list:
             r.raise_for_status()
             results = r.json().get("results", [])
         
+        if not results:
+            return []
+        
+        # Адаптивный порог: берём только если топ-1 достаточно релевантен
+        top_score = results[0]["relevance_score"] if results else 0
+        
+        # Если лучший результат < 0.12 — ничего не показываем
+        # (Cohere Rerank: 0.12+ = умеренная релевантность, 0.2+ = хорошая)
+        if top_score < 0.12:
+            print(f"Theology: top score {top_score:.3f} < 0.12, skipping")
+            return []
+        
+        # Динамический порог: показываем только то что близко к топу
+        # (не хуже чем в 3 раза от лучшего результата)
+        threshold = max(0.08, top_score * 0.35)
+        
         quotes = []
         for res in results:
             idx = res["index"]
             score = res["relevance_score"]
+            if score < threshold:
+                break  # результаты отсортированы, дальше только хуже
             rec = sample[idx]
             quotes.append({
                 "author": rec["author"],
@@ -494,7 +512,7 @@ async def find_theology_quotes(post_text: str, top_n: int = 3) -> list:
                 "score": round(score, 3)
             })
         
-        print(f"Theology search: found {len(quotes)} quotes (scores: {[q['score'] for q in quotes]})")
+        print(f"Theology search: found {len(quotes)} quotes, top={top_score:.3f}, threshold={threshold:.3f}")
         return quotes
         
     except Exception as e:
