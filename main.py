@@ -455,13 +455,13 @@ async def find_theology_quotes(post_text: str, top_n: int = 3) -> list:
             by_author[rec["author"]].append(rec)
         
         sample = []
-        per_author = min(300, 1500 // max(len(by_author), 1))
+        per_author = min(400, 2000 // max(len(by_author), 1))
         for author, recs in by_author.items():
             selected = random.sample(recs, min(per_author, len(recs)))
             sample.extend(selected)
         
         random.shuffle(sample)
-        sample = sample[:1500]  # максимум 1500 для Cohere
+        sample = sample[:2000]  # максимум 2000 для Cohere
         
         documents = [rec["text"][:400] for rec in sample]
         
@@ -486,8 +486,6 @@ async def find_theology_quotes(post_text: str, top_n: int = 3) -> list:
         for res in results:
             idx = res["index"]
             score = res["relevance_score"]
-            if score < 0.15:  # минимальный порог релевантности
-                continue
             rec = sample[idx]
             quotes.append({
                 "author": rec["author"],
