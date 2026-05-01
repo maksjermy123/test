@@ -351,6 +351,49 @@
     }
     .trans-btn:active { opacity: 0.8; }
 
+    /* ── Theology quotes ── */
+    .theology-item {
+      padding: 13px 14px 11px;
+      border-bottom: 1px solid var(--border);
+    }
+    .theology-item:last-child { border-bottom: none; }
+    .theology-author {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+    .theology-title {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .theology-text {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 1rem;
+      line-height: 1.65;
+      font-style: italic;
+      color: var(--text);
+      padding: 8px 11px;
+      background: var(--quote-bg);
+      border-left: 3px solid var(--accent2);
+      border-radius: 0 6px 6px 0;
+      max-height: 140px;
+      overflow: hidden;
+      position: relative;
+      transition: max-height 0.3s ease;
+    }
+    .theology-text.expanded { max-height: 9999px; }
+    .theology-text:not(.expanded)::after {
+      content: "";
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 40px;
+      background: linear-gradient(transparent, var(--quote-bg));
+    }
+
     /* ── Reflection ── */
     .reflection-body {
       padding: 13px 14px;
@@ -795,6 +838,26 @@
 
       html += `<div class="card">
         <div class="card-header"><span>📖</span><h2>Библейские отрывки</h2></div>
+        ${items}
+      </div>`;
+    }
+
+    // Богословские комментарии
+    if (data.quotes?.length) {
+      const items = data.quotes.map((q, i) => {
+        const safeId = `tq${i}`;
+        return `
+        <div class="theology-item">
+          <div class="theology-author">${q.author}</div>
+          <div class="theology-title">${q.title || ""}</div>
+          <div class="theology-text" id="${safeId}">${q.text}</div>
+          <button class="expand-btn" onclick="toggleText(this,'${safeId}','tq_${i}')">
+            <span>Читать полностью</span> ↓
+          </button>
+        </div>`;
+      }).join("");
+      html += `<div class="card">
+        <div class="card-header"><span>💬</span><h2>Богословы о теме</h2></div>
         ${items}
       </div>`;
     }
